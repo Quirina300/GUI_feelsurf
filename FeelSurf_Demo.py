@@ -134,7 +134,7 @@ class daqMxRead(threading.Thread):
         self.taskWrite.close()
 
 
-def gameWindow(texName, texture, Gain1, Gain2, visual_condition=True):
+def gameWindow(texName, texture, Gain1, Gain2, terminate, show_img=True):
     pygame.init() # initializing the constructor
   
     # screen main window resolution
@@ -144,31 +144,32 @@ def gameWindow(texName, texture, Gain1, Gain2, visual_condition=True):
 
     renderFlag = True
 
-    if visual_condition == True:
+    if show_img:
         img = pygame.image.load("./Texture_images/"+str(texName)+".tif").convert()
     else:
         img = pygame.image.load("./Texture_images/notexture.png")
     img = pygame.transform.scale(img, (600,600))
 
     run = True
-    while run:
+    while run and not terminate.is_set():
         clock.tick(60)
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 # forceRead.DaqStop()
-                texRend.DaqStop()
+                # texRend.DaqStop()
                 run = False
 
         window.fill((0, 0, 0))
         if renderFlag == True:
-            texRend = daqMxWrite(texture,Gain1,Gain2)
-            texRend.init()
-            texRend.start()
+            # texRend = daqMxWrite(texture,Gain1,Gain2)
+            # texRend.init()
+            # texRend.start()
             renderFlag = False
 
         window.blit(img, (200,0))
         pygame.display.flip()
     
+    #print('Texture rendering has shut down gracefully.')
     pygame.quit()
 
 

@@ -6,6 +6,7 @@ from PIL import ImageTk, Image
 import numpy as np
 import os
 import multiprocessing
+import pygame
 
 from FeelSurf_Demo import gameWindow
 
@@ -38,8 +39,6 @@ slider_popup = None
 # Load randomly generated texture order
 order_textures = np.loadtxt("order.csv", delimiter=",", dtype=str)
 
-
-
 # Main GUI window
 class FeelSurfGUI:
     # Class attributes
@@ -48,6 +47,7 @@ class FeelSurfGUI:
     current_condition = 0
     current_participant = 1
     current_trial = 1
+    participant_scores = np.zeros(trials_per_texture*len(textures), dtype=int)
 
     pygame_process = None
 
@@ -164,8 +164,8 @@ class FeelSurfGUI:
         # -- Button to save & quit
         self.b_save_and_quit = tk.Button(self.f_start_experiment, text='Save & Quit', width=10, command=self.save_and_quit)
         self.b_save_and_quit.grid(row=3, column=1, padx=5, pady=5, sticky='nsew')
+    terminate = None
 
-    participant_scores = np.zeros(trials_per_texture*len(textures), dtype=int)
 
     # Run tkinter main loop
     def mainloop(self):
@@ -231,13 +231,12 @@ class FeelSurfGUI:
         # reset participant answers
         self.participant_scores = np.zeros(trials_per_texture*len(textures), dtype=int)
 
-        # Spawn texture and slider popup windows, pass self so that it can be used as the parent window
+        # Spawn slider popup windows, pass self so that it can be used as the parent window
         slider_popup = FeelSurfPopupSlider(self)
 
         # Start rendering the first texture
         progress = f'{self.current_trial}/{trials_per_texture*len(textures)}'
         print(f"Trial {progress}")
-
         current_texture = order_textures[self.current_participant-1 + num_participants*self.current_condition][self.current_trial-1]
         self.render_texture(current_texture)
         
@@ -247,6 +246,11 @@ class FeelSurfGUI:
         if window:
             window.destroy()
         
+        # Kill gameWindow process
+        if self.pygame_process and self.pygame_process.is_alive():
+            self.terminate.set()
+            self.pygame_process.join()
+
         # Handle duplicate filenames
         file_path = f"data/{self.current_participant}_{self.current_condition}.csv"
         if os.path.exists(file_path):
@@ -267,35 +271,29 @@ class FeelSurfGUI:
                         self.participant_scores]).T
         np.savetxt(file_path, results, delimiter=",", fmt='%s') 
         print('Quit experiment and saved participant data.')
-
-        # Kill gameWindow process
-        if self.pygame_process and self.pygame_process.is_alive():
-            self.pygame_process.terminate()
-            self.pygame_process.join()
-    
+   
     # Render the selected texture (used for both calibration and actual experiment)
-    def render_texture(self, selected_item, calibrating=False):
-        print(f"Rendering {selected_item}!")
-        selected_item_index = textures.index(selected_item)
-        Gain1 = self.gain_spinboxes[selected_item_index].get()
-        Gain2 = self.other_gains[selected_item_index]
+    def render_texture(self, selected_texture, calibrating=False):
+        print(f"Rendering {selected_texture}")
+        selected_texture_index = textures.index(selected_texture)
+        Gain1 = self.gain_spinboxes[selected_texture_index].get()
+        Gain2 = self.other_gains[selected_texture_index]
+        texture_file_info = np.loadtxt(f"Texture_signals/{selected_texture}.csv")
 
-        texture_file_info = np.loadtxt(f"Texture_signals/{selected_item}.csv")
+        show_img = False
         if self.cbox_condition.get() == conditions[1] or calibrating: 
-            img = True
-        else:
-            img = False
-        
-        # Kill previous gameWindow's process (if it exists)
+            show_img = True
+
+        # Kill previous gameWindow's process (if it still exists for some reason)
         if self.pygame_process is not None:
-            self.pygame_process.terminate()
+            self.terminate.set()
             self.pygame_process.join()
 
-        # Start gamewindow in a separate process 
+        # Start gamewindow in a separate process
+        self.terminate = multiprocessing.Event() 
         if self.pygame_process is None or not self.pygame_process.is_alive():
-            self.pygame_process = multiprocessing.Process(target=gameWindow, args=(selected_item, texture_file_info, Gain1, Gain2, img))
+            self.pygame_process = multiprocessing.Process(target=gameWindow, args=(selected_texture, texture_file_info, Gain1, Gain2, self.terminate, show_img))
             self.pygame_process.start()
-        # start rendering in another thread to keep UI responsive
 
 # Popup window that shows likert scale slider
 class FeelSurfPopupSlider:
