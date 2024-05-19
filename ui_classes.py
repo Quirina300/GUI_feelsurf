@@ -247,7 +247,7 @@ class FeelSurfGUI:
         file_path = f"data/{self.current_participant}_{self.current_condition}.csv"
         if os.path.exists(file_path):
             print(f"Warning: '{file_path}' already exists.")
-            base = f"{self.current_participant}_{self.current_condition}"
+            base = f"data/{self.current_participant}_{self.current_condition}"
             i = 1
             while True:
                 new_path = base + ' (' + str(i) + ').csv'
