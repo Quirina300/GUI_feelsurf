@@ -27,13 +27,10 @@ conditions = ["No visual", "Visual"]
 
 num_participants = 20
 
-default_gain = 20
-
 # window vars
 window_width = 600
 window_height = 400
 root = None
-texture_popup = None
 slider_popup = None
 
 # Load randomly generated texture order
@@ -43,6 +40,7 @@ order_textures = np.loadtxt("order.csv", delimiter=",", dtype=str)
 class FeelSurfGUI:
     # Class attributes
     gain_spinboxes = []
+    default_gains = [15,45,0,0,0]
     other_gains = [1,0.5,0,0,0]
     current_condition = 0
     current_participant = 1
@@ -50,6 +48,7 @@ class FeelSurfGUI:
     participant_scores = np.zeros(trials_per_texture*len(textures), dtype=int)
 
     pygame_process = None
+    terminate = None
 
     def __init__(self, root):
         # -- Main window with two left-right frames
@@ -86,14 +85,13 @@ class FeelSurfGUI:
         l_gains.grid(row=0, column=1, padx=5, pady=5, sticky='nsew')
 
         # -- Spinboxes to set the gain
-        gains_starting_point = [15,45,0,0,0]
         for i in range(len(textures)):
-            l = ttk.Label(self.f_gains, text=textures[i])
+            l = tk.Label(self.f_gains, text=textures[i])
             l.grid(row=i+1, column=0, padx=5, pady=5, sticky='nsew')
 
             sb = ttk.Spinbox(self.f_gains, from_=0, to=100, width=10)
             sb.grid(row=i+1, column=1, padx=5, pady=5, sticky='nsew')
-            sb.set(gains_starting_point[i])
+            sb.set(self.default_gains[i])
 
             self.gain_spinboxes.append(sb) # So we can access their values later
 
@@ -106,7 +104,7 @@ class FeelSurfGUI:
         l_participant = tk.Label(self.f_participant_info, text="Participant nr: ", width=10)
         l_participant.grid(row=1, column=0, padx=5, pady=5, sticky='nsew')
 
-        self.sb_participant = ttk.Spinbox(self.f_participant_info, from_=1, to=20, width=10, command=self.update_participant)
+        self.sb_participant = ttk.Spinbox(self.f_participant_info, from_=1, to=num_participants, width=10, command=self.update_participant)
         self.sb_participant.set(self.current_participant)
         self.sb_participant.grid(row=1, column=1, padx=5, pady=5, sticky='nsew')
         
@@ -130,10 +128,8 @@ class FeelSurfGUI:
         self.cbox_calibrate.grid(row=1, column=1, padx=5, pady=5, sticky='nsew')
         self.cbox_calibrate.set(textures[0])
 
-        # self.cbox_calibrate.bind("<<ComboboxSelected>>", self.update_calibration_texture)
-
         # -- Button to start calibration
-        b_calibration_start = tk.Button(self.f_start_calibration, text='Start', width=10, command=self.calibrate)
+        b_calibration_start = tk.Button(self.f_start_calibration, text='Start', width=10, command=self.start_calibration)
         b_calibration_start.grid(row=2, column=0, columnspan=2, padx=5, pady=5, sticky='nsew')
 
         """----------------------------START EXPERIMENT FRAME ----------------------------"""
@@ -154,7 +150,7 @@ class FeelSurfGUI:
         # -- Visual/no visual indicator image
         self.img_visual = ImageTk.PhotoImage(Image.open("Texture_images/texture.png").resize((120, 120)))
         self.img_no_visual = ImageTk.PhotoImage(Image.open("Texture_images/notexture.png").resize((120, 120)))
-        self.l_img_visual = tk.Label(self.f_start_experiment, image = self.img_no_visual)
+        self.l_img_visual = tk.Label(self.f_start_experiment, image=self.img_no_visual)
         self.l_img_visual.grid(row=2, column=0, columnspan=2, padx=5, pady=5, sticky='nsew')
 
         # -- Button to start experiment
@@ -164,8 +160,6 @@ class FeelSurfGUI:
         # -- Button to save & quit
         self.b_save_and_quit = tk.Button(self.f_start_experiment, text='Save & Quit', width=10, command=self.save_and_quit)
         self.b_save_and_quit.grid(row=3, column=1, padx=5, pady=5, sticky='nsew')
-    terminate = None
-
 
     # Run tkinter main loop
     def mainloop(self):
@@ -199,11 +193,10 @@ class FeelSurfGUI:
     # Update current participant when spinbox changes
     def update_participant(self):
         self.current_participant = int(self.sb_participant.get())
-        #print(type(self.current_participant))
         print(f'Current participant: {self.current_participant}')
 
     # Start rendering of calibration texture on button press
-    def calibrate(self):
+    def start_calibration(self):
         texture = self.cbox_calibrate.get()
         print(f'Calibration started for {texture}')
         self.render_texture(texture, calibrating=True)
