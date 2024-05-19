@@ -216,30 +216,28 @@ class FeelSurfGUI:
 
     # Start experiment on button press
     def start_experiment(self):
-        print(f'Experiment started: Participant {self.current_participant}, condition {self.current_condition}.')
-
-        # reset trial counter
+        # reset trial counter and answers array
         self.current_trial = 1
-
-        # reset participant answers
         self.participant_scores = np.zeros(trials_per_texture*len(textures), dtype=int)
 
         # Spawn slider popup windows, pass self so that it can be used as the parent window
         slider_popup = FeelSurfPopupSlider(self)
 
-        # Start rendering the first texture
         progress = f'{self.current_trial}/{trials_per_texture*len(textures)}'
-        print(f"Trial {progress}")
+        print(f'Experiment started. Participant {self.current_participant}. {conditions[self.current_condition]} condition.')
+        print(f"Trial {progress}:", end=" ")
+
+        # Start rendering the first texture
         current_texture = order_textures[self.current_participant-1 + num_participants*self.current_condition][self.current_trial-1]
         self.render_texture(current_texture)
-        
+
     # Save & quit feature (used when button pressed AND when all trials hare finished (slider window))
     def save_and_quit(self, window=None):
         # Close slider window if this function is called from the 'Next' button
         if window:
             window.destroy()
         
-        # Kill gameWindow process
+        # Kill the gameWindow process
         if self.pygame_process and self.pygame_process.is_alive():
             self.terminate.set()
             self.pygame_process.join()
@@ -267,12 +265,15 @@ class FeelSurfGUI:
    
     # Render the selected texture (used for both calibration and actual experiment)
     def render_texture(self, selected_texture, calibrating=False):
-        print(f"Rendering {selected_texture}")
+        # Get gains of selected texture
         selected_texture_index = textures.index(selected_texture)
         Gain1 = self.gain_spinboxes[selected_texture_index].get()
         Gain2 = self.other_gains[selected_texture_index]
+
+        # Get recorded texture data
         texture_file_info = np.loadtxt(f"Texture_signals/{selected_texture}.csv")
 
+        # Determine if texture images should be shown
         show_img = False
         if self.cbox_condition.get() == conditions[1] or calibrating: 
             show_img = True
@@ -287,6 +288,8 @@ class FeelSurfGUI:
         if self.pygame_process is None or not self.pygame_process.is_alive():
             self.pygame_process = multiprocessing.Process(target=gameWindow, args=(selected_texture, texture_file_info, Gain1, Gain2, self.terminate, show_img))
             self.pygame_process.start()
+        
+        print(f"Rendering {selected_texture}")
 
 # Popup window that shows likert scale slider
 class FeelSurfPopupSlider:
@@ -321,20 +324,20 @@ class FeelSurfPopupSlider:
         # store participant answer in array
         val = self.slider_likert.get()
         self.parent.participant_scores[self.parent.current_trial-1] = val
-        print(f"Saved participant answer. Current array of answers: {self.parent.participant_scores}")
+        print(f"Saved participant answer --> {self.parent.participant_scores}")
 
         # advance trial
         gui.current_trial += 1
         
-        # close slider window and call save command in parent window
         if gui.current_trial > trials_per_texture*len(textures):
+            # Last trial --> call save command in parent window
             gui.save_and_quit(self.window_slider)
         else: 
             progress = f'{self.parent.current_trial}/{trials_per_texture*len(textures)}'
-            print(f"Trial {progress}:")
-
             self.title_slider.config(text=f"Trial {progress}")
+            print(f"Trial {progress}:", end=" ")
 
+            # Render the next texture
             current_texture = order_textures[gui.current_participant-1 + num_participants*gui.current_condition][gui.current_trial-1]
             gui.render_texture(current_texture)
 
