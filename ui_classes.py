@@ -5,15 +5,14 @@ import tkinter.font as tkFont
 from PIL import ImageTk, Image
 import numpy as np
 import os
-
+import multiprocessing
 
 from FeelSurf_Demo import gameWindow
 
 
 """----------------------------PARAMETERS AND VARIABLES----------------------------"""
-textures = ["Wood", "RoughFoam", "Texture 3","Texture 4","Texture 5"]
+textures = ["Wood", "RoughFoam", "Metal","Carpet","Paper"]
 trials_per_texture = 3
-
 
 likert_labels = ["Extremely\nDissimilar", 
                  "Dissimilar", 
@@ -22,10 +21,8 @@ likert_labels = ["Extremely\nDissimilar",
                  "Slightly\nSimilar", 
                  "Similar", 
                  "Extremely\nSimilar"]
-participant_scores = np.zeros(trials_per_texture*len(textures))
 
 conditions = ["No visual", "Visual"]
-
 
 num_participants = 20
 
@@ -38,11 +35,10 @@ root = None
 texture_popup = None
 slider_popup = None
 
-
-# [TODO] deze variable is tijdelijk, we need to actually generate random sequence of textures
-# rndm_text = ["Wood", "Metal", "RoughFoam", "Carpet", "Rubber","Wood", "Metal", "RoughFoam", "Carpet", "Rubber","Wood", "Metal", "RoughFoam", "Carpet", "Rubber"]
-# order_textures = ["Wood", "RoughFoam", "RoughFoam", "Wood", "RoughFoam", "Wood"]
+# Load randomly generated texture order
 order_textures = np.loadtxt("order.csv", delimiter=",", dtype=str)
+
+
 
 # Main GUI window
 class FeelSurfGUI:
@@ -52,6 +48,8 @@ class FeelSurfGUI:
     current_condition = 0
     current_participant = 1
     current_trial = 1
+
+    pygame_process = None
 
     def __init__(self, root):
         # -- Main window with two left-right frames
@@ -167,6 +165,8 @@ class FeelSurfGUI:
         self.b_save_and_quit = tk.Button(self.f_start_experiment, text='Save & Quit', width=10, command=self.save_and_quit)
         self.b_save_and_quit.grid(row=3, column=1, padx=5, pady=5, sticky='nsew')
 
+    participant_scores = np.zeros(trials_per_texture*len(textures), dtype=int)
+
     # Run tkinter main loop
     def mainloop(self):
         self.root.mainloop()
@@ -199,11 +199,14 @@ class FeelSurfGUI:
     # Update current participant when spinbox changes
     def update_participant(self):
         self.current_participant = int(self.sb_participant.get())
-        print(type(self.current_participant))
+        #print(type(self.current_participant))
         print(f'Current participant: {self.current_participant}')
 
+    # Start rendering of calibration texture on button press
     def calibrate(self):
-        self.render_texture(self.cbox_calibrate.get(), True)
+        texture = self.cbox_calibrate.get()
+        print(f'Calibration started for {texture}')
+        self.render_texture(texture, calibrating=True)
 
     # Update current condition and condition preview image when combobox changes
     def update_condition(self, event):
@@ -220,23 +223,24 @@ class FeelSurfGUI:
 
     # Start experiment on button press
     def start_experiment(self):
-        print('started experiment')
+        print(f'Experiment started: Participant {self.current_participant}, condition {self.current_condition}.')
 
         # reset trial counter
-        
         self.current_trial = 1
 
         # reset participant answers
-        global participant_scores
-        participant_scores = np.zeros(trials_per_texture*len(textures))
+        self.participant_scores = np.zeros(trials_per_texture*len(textures), dtype=int)
 
         # Spawn texture and slider popup windows, pass self so that it can be used as the parent window
         slider_popup = FeelSurfPopupSlider(self)
-        temp_current_participant = (self.current_participant-1)*2 + self.current_condition
-        selected_item = order_textures[temp_current_participant, self.current_trial-1]
-        self.render_texture(selected_item)
-        
 
+        # Start rendering the first texture
+        progress = f'{self.current_trial}/{trials_per_texture*len(textures)}'
+        print(f"Trial {progress}")
+
+        current_texture = order_textures[self.current_participant-1 + num_participants*self.current_condition][self.current_trial-1]
+        self.render_texture(current_texture)
+        
     # Save & quit feature (used when button pressed AND when all trials hare finished (slider window))
     def save_and_quit(self, window=None):
         # Close slider window if this function is called from the 'Next' button
@@ -258,12 +262,20 @@ class FeelSurfGUI:
             print(f"Saved as copy instead: {file_path}")
 
         # Save as csv
-        temp_current_participant = (self.current_participant-1)*2 + self.current_condition
-        results = np.array([order_textures[temp_current_participant], participant_scores]).T
+        results = np.array([
+                        order_textures[self.current_participant-1 + num_participants*self.current_condition], 
+                        self.participant_scores]).T
         np.savetxt(file_path, results, delimiter=",", fmt='%s') 
         print('Quit experiment and saved participant data.')
+
+        # Kill gameWindow process
+        if self.pygame_process and self.pygame_process.is_alive():
+            self.pygame_process.terminate()
+            self.pygame_process.join()
     
+    # Render the selected texture (used for both calibration and actual experiment)
     def render_texture(self, selected_item, calibrating=False):
+        print(f"Rendering {selected_item}!")
         selected_item_index = textures.index(selected_item)
         Gain1 = self.gain_spinboxes[selected_item_index].get()
         Gain2 = self.other_gains[selected_item_index]
@@ -273,8 +285,17 @@ class FeelSurfGUI:
             img = True
         else:
             img = False
-        gameWindow(selected_item, texture_file_info, Gain1, Gain2, img)
+        
+        # Kill previous gameWindow's process (if it exists)
+        if self.pygame_process is not None:
+            self.pygame_process.terminate()
+            self.pygame_process.join()
 
+        # Start gamewindow in a separate process 
+        if self.pygame_process is None or not self.pygame_process.is_alive():
+            self.pygame_process = multiprocessing.Process(target=gameWindow, args=(selected_item, texture_file_info, Gain1, Gain2, img))
+            self.pygame_process.start()
+        # start rendering in another thread to keep UI responsive
 
 # Popup window that shows likert scale slider
 class FeelSurfPopupSlider:
@@ -305,31 +326,36 @@ class FeelSurfPopupSlider:
         b_next = tk.Button(self.window_slider, text='Next', width=10, command=self.next)
         b_next.grid(row=3, column=5, columnspan=2, padx=5, pady=5, sticky='nsew')
 
-
     def next(self):
         # store participant answer in array
         val = self.slider_likert.get()
-        participant_scores[gui.current_trial-1] = val
-        print(f"Saved participant answer. Current array of answers: {participant_scores}")
+        self.parent.participant_scores[self.parent.current_trial-1] = val
+        print(f"Saved participant answer. Current array of answers: {self.parent.participant_scores}")
 
         # advance trial
         gui.current_trial += 1
         
-        self.title_slider.config(text=f"Trial {gui.current_trial}/{trials_per_texture*len(textures)}")
-        
         # close slider window and call save command in parent window
         if gui.current_trial > trials_per_texture*len(textures):
-            self.parent.save_and_quit(self.window_slider)
+            gui.save_and_quit(self.window_slider)
         else: 
-            temp_current_participant = (gui.current_participant-1)*2 + gui.current_condition
-            selected_item = order_textures[temp_current_participant, gui.current_trial-1]
-            print('current_trial: ', gui.current_trial)
-            print('condition: ', selected_item)
-            gui.render_texture(selected_item)
+            progress = f'{self.parent.current_trial}/{trials_per_texture*len(textures)}'
+            print(f"Trial {progress}:")
+
+            self.title_slider.config(text=f"Trial {progress}")
+
+            current_texture = order_textures[gui.current_participant-1 + num_participants*gui.current_condition][gui.current_trial-1]
+            gui.render_texture(current_texture)
 
 
 if __name__ == "__main__":
+    multiprocessing.set_start_method('spawn')
+
+    os.environ['SDL_VIDEO_WINDOW_POS'] = f"{1921},{0}"
+    os.environ['PYGAME_HIDE_SUPPORT_PROMPT'] = '1'
+
     root = tk.Tk()
     gui = FeelSurfGUI(root)
+
     gui.mainloop()
 
