@@ -8,19 +8,6 @@ import threading
 import matplotlib.pyplot as plt
 
 
-pygame.init() # initializing the constructor
-  
-# screen main window resolution
-mainRes = (1024,600) 
-screen = pygame.display.set_mode(mainRes)
-mainWidth = screen.get_width()
-mainHeight = screen.get_height()
-clock = pygame.time.Clock()  # intializing clock
-
-# App title
-titlefont = pygame.font.SysFont('Corbel',45)
-title =  titlefont.render('Texture rendering' , True , (0,0,0))
-
 normalForce = -0.35
 
 global texture
@@ -48,7 +35,6 @@ class daqMxWrite(threading.Thread):
         self.sine_wave = amplitude * np.sin(2 * np.pi * frequency * time1)
 
         self.tex_data = self.data + self.sine_wave
-
 
     def run(self):
         while self.f_play:
@@ -113,7 +99,6 @@ class daqMxRead(threading.Thread):
         self.forceBias = np.transpose(np.matmul(self.Gain, np.transpose(force_raw_cal)))
         self.forceBias = np.average(self.forceBias,axis=0)
 
-    
     #Write data function
     def daqWrite(self,value):
         self.taskWrite.write(value)
@@ -150,17 +135,21 @@ class daqMxRead(threading.Thread):
 
 
 def gameWindow(texName, texture, Gain1, Gain2, visual_condition=True):
-    window = pygame.display.set_mode((mainWidth, mainHeight))
-    clock = pygame.time.Clock()
-    font = pygame.font.SysFont(None, 100)
-    counter = 3
-    text = font.render(str(counter), True, (255, 255, 255))
-    gameFlag = False
+    pygame.init() # initializing the constructor
+  
+    # screen main window resolution
+    mainRes = (1024,600) 
+    clock = pygame.time.Clock()  # intializing clock
+    window = pygame.display.set_mode(mainRes)
+
     renderFlag = True
 
-    timer_event = pygame.USEREVENT+1
-    pygame.time.set_timer(timer_event, 1000)
-    
+    if visual_condition == True:
+        img = pygame.image.load("./Texture_images/"+str(texName)+".tif").convert()
+    else:
+        img = pygame.image.load("./Texture_images/notexture.png")
+    img = pygame.transform.scale(img, (600,600))
+
     run = True
     while run:
         clock.tick(60)
@@ -169,45 +158,19 @@ def gameWindow(texName, texture, Gain1, Gain2, visual_condition=True):
                 # forceRead.DaqStop()
                 texRend.DaqStop()
                 run = False
-            elif event.type == timer_event: # Countdown
-                counter -= 1
-                text = font.render(str(counter), True, (255, 255, 255))
-                if counter == 0:
-                    pygame.time.set_timer(timer_event, 0)
-                    gameFlag = True 
 
-        if gameFlag == True:
-            print("texName = ", str(texName))
-            window.fill((0, 0, 0))
-            if renderFlag == True:
-                texRend = daqMxWrite(texture,Gain1,Gain2)
+        window.fill((0, 0, 0))
+        if renderFlag == True:
+            texRend = daqMxWrite(texture,Gain1,Gain2)
+            texRend.init()
+            texRend.start()
+            renderFlag = False
 
-                texRend.init()
-                texRend.start()
-                renderFlag = False
-            if visual_condition == True:
-                img = pygame.image.load("./Texture_images/"+str(texName)+".tif").convert()
-            else:
-                img = pygame.image.load("./Texture_images/notexture.png")
-
-            img = pygame.transform.scale(img, (600,600))
-            window.blit(img, (200,0))
-
-        else:
-            window.fill((0, 0, 0))
-            if visual_condition == True:
-                img = pygame.image.load("./Texture_images/"+str(texName)+".tif").convert()
-            else:
-                img = pygame.image.load("./Texture_images/notexture.png")
-            img = pygame.transform.scale(img, (600,600))
-            
-            window.blit(img, (200,0))
-            text_rect = text.get_rect(center = window.get_rect().center)
-            window.blit(text, text_rect)
-       
+        window.blit(img, (200,0))
         pygame.display.flip()
+    
+    pygame.quit()
 
 
 if __name__ == '__main__':                                  
-    pygame.quit()
-    exit()
+    pass
