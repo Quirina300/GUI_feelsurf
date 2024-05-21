@@ -40,9 +40,9 @@ class daqMxWrite(threading.Thread):
         while self.f_play:
             with nidaqmx.Task() as task:
                 if not self.f_play_stop:
-                    print("Texture is rendering")
+                    #print("Texture is rendering")
                     # Configure the task for waveform generation
-                    task.ao_channels.add_ao_voltage_chan("cDAQ1Mod2/ao1")  # Replace "your_device_name" with the actual device name and channel
+                    task.ao_channels.add_ao_voltage_chan("cDAQ1Mod2/ao0")  # Replace "your_device_name" with the actual device name and channel
                     task.timing.cfg_samp_clk_timing(rate=self.sampling_rate, samps_per_chan=self.num_samples)
 
                     # Write the sine wave to the output channel
@@ -156,20 +156,21 @@ def gameWindow(texName, texture, Gain1, Gain2, terminate, show_img=True):
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 # forceRead.DaqStop()
-                # texRend.DaqStop()
+                texRend.DaqStop()
                 run = False
 
         window.fill((0, 0, 0))
         if renderFlag == True:
-            # texRend = daqMxWrite(texture,Gain1,Gain2)
-            # texRend.init()
-            # texRend.start()
+            texRend = daqMxWrite(texture,Gain1,Gain2)
+            texRend.init()
+            texRend.start()
             renderFlag = False
 
         window.blit(img, (200,0))
         pygame.display.flip()
     
-    #print('Texture rendering has shut down gracefully.')
+    print('Texture rendering has shut down gracefully.')
+    texRend.DaqStop()
     pygame.quit()
 
 

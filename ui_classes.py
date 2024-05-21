@@ -267,7 +267,7 @@ class FeelSurfGUI:
     def render_texture(self, selected_texture, calibrating=False):
         # Get gains of selected texture
         selected_texture_index = textures.index(selected_texture)
-        Gain1 = self.gain_spinboxes[selected_texture_index].get()
+        Gain1 = int(self.gain_spinboxes[selected_texture_index].get())
         Gain2 = self.other_gains[selected_texture_index]
 
         # Get recorded texture data
