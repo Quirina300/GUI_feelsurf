@@ -12,7 +12,7 @@ from FeelSurf_Demo import gameWindow
 
 
 """----------------------------PARAMETERS AND VARIABLES----------------------------"""
-textures = ["Wood", "RoughFoam", "Metal","Carpet","Paper"]
+textures = ["Wood", "RoughFoam","Carpet","Sandpaper"]
 trials_per_texture = 3
 
 likert_labels = ["Extremely\nDissimilar", 
@@ -40,8 +40,8 @@ order_textures = np.loadtxt("order.csv", delimiter=",", dtype=str)
 class FeelSurfGUI:
     # Class attributes
     gain_spinboxes = []
-    default_gains = [15,45,0,0,0]
-    other_gains = [1,0.5,0,0,0]
+    default_gains = [18,45,20,20]
+    other_gains = [1,0.5,0.4,0.4]
     current_condition = 0
     current_participant = 1
     current_trial = 1

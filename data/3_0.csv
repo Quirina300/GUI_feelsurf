@@ -1,15 +1,12 @@
-RoughFoam,1.0
-Texture 5,2.0
-Texture 5,2.0
-RoughFoam,3.0
-Wood,4.0
-Texture 5,5.0
-Texture 3,6.0
-Texture 3,6.0
-Texture 4,7.0
-Wood,7.0
-Texture 4,1.0
-Texture 3,2.0
-Texture 4,3.0
-RoughFoam,4.0
-Wood,5.0
+Wood,5
+Carpet,3
+RoughFoam,5
+Wood,4
+Carpet,3
+Carpet,3
+Sandpaper,5
+RoughFoam,3
+RoughFoam,3
+Sandpaper,5
+Sandpaper,5
+Wood,4
